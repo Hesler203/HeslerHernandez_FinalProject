@@ -3,17 +3,39 @@ using UnityEngine.InputSystem;
 
 public class InputManager : MonoBehaviour
 {
-    public static InputManager _InputManager { get; private set; }
-    [SerializeField] public InputActionReference Inputs;
+    public static InputManager Instance { get; private set; }
+
+    [Header("InputActionReferences")]
+    [SerializeField] private InputActionReference PlayerMove;
+    // UI input action ref TODO
+
+    [field: Header("Settings")]
+    [field: SerializeField] public float MoveDeadzone { get; private set; }
+    public Vector2 PlayerMoveInput { get; private set; }
 
     void Awake()
     {
-        if (_InputManager && _InputManager != this)
+        if (Instance && Instance != this)
         {
-            Destroy(_InputManager);
+            Destroy(gameObject);
+            return;
         }
-        _InputManager = this;
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
     }
 
+    void OnEnable()
+    {
+        PlayerMove.action.Enable();
+    }
 
+    void OnDisable()
+    {
+        PlayerMove.action.Disable();
+    }
+
+    void Update()
+    {
+        PlayerMoveInput = PlayerMove.action.ReadValue<Vector2>();
+    }
 }
