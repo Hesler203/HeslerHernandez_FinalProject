@@ -2,14 +2,18 @@ using UnityEngine;
 
 public class GameManager : MonoBehaviour
 {
-    public static GameManager _GameManager { get; private set; }
+    public static GameManager Instance { get; private set; }
+
+    public AnimatorManager _AnimatorManager { get; private set; }
 
     void Awake()
     {
-        if (_GameManager && _GameManager != this)
+        if (Instance && Instance != this)
         {
-            Destroy(_GameManager);
+            Destroy(Instance);
         }
-        _GameManager = this;
+        Instance = this;
+
+        _AnimatorManager = GetComponentInChildren<AnimatorManager>();
     }
 }
