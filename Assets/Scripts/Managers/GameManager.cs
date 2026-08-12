@@ -5,6 +5,7 @@ public class GameManager : MonoBehaviour
     public static GameManager Instance { get; private set; }
 
     public AnimatorManager _AnimatorManager { get; private set; }
+    public AudioManager _AudioManager { get; private set; }
 
     void Awake()
     {
@@ -13,7 +14,11 @@ public class GameManager : MonoBehaviour
             Destroy(Instance);
         }
         Instance = this;
+    }
 
+    void Start()
+    {
         _AnimatorManager = GetComponentInChildren<AnimatorManager>();
+        _AudioManager = GetComponentInChildren<AudioManager>();
     }
 }
