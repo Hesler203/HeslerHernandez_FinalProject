@@ -1,3 +1,4 @@
+using UnityEditor.Build;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -6,12 +7,14 @@ public class InputManager : MonoBehaviour
     public static InputManager Instance { get; private set; }
 
     [Header("InputActionReferences")]
-    [SerializeField] private InputActionReference PlayerMove;
+    [SerializeField] private InputActionReference playerMove;
+    [SerializeField] private InputActionReference playerRoll;
     // UI input action ref TODO
 
     [field: Header("Settings")]
     [field: SerializeField] public float MoveDeadzone { get; private set; }
     public Vector2 PlayerMoveInput { get; private set; }
+    public bool PlayerRollInput { get; private set; }
 
     void Awake()
     {
@@ -26,16 +29,19 @@ public class InputManager : MonoBehaviour
 
     void OnEnable()
     {
-        PlayerMove.action.Enable();
+        playerMove.action.Enable();
+        playerRoll.action.Enable();
     }
 
     void OnDisable()
     {
-        PlayerMove.action.Disable();
+        playerMove.action.Disable();
+        playerRoll.action.Disable();
     }
 
     void Update()
     {
-        PlayerMoveInput = PlayerMove.action.ReadValue<Vector2>();
+        PlayerMoveInput = playerMove.action.ReadValue<Vector2>();
+        PlayerRollInput = playerRoll.action.IsPressed();
     }
 }
