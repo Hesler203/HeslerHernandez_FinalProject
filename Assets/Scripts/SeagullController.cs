@@ -1,7 +1,9 @@
 using System.Collections;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.AI;
 
+[RequireComponent(typeof(Animator))]
 [RequireComponent(typeof(Animator))]
 [RequireComponent(typeof(SpriteRenderer))]
 public class SeagullController : MonoBehaviour
@@ -59,6 +61,10 @@ public class SeagullController : MonoBehaviour
 
         shadowInitialScale = transform.localScale;
 
+        navAgent.SetDestination(standbyTargets[nextTargetIndex = 0].position);
+        currentTargetIndex = nextTargetIndex++;
+
+        currentState = SeagullState.standby;
         navAgent.SetDestination(standbyTargets[nextTargetIndex = 0].position);
         currentTargetIndex = nextTargetIndex++;
 
