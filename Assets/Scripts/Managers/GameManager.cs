@@ -1,11 +1,14 @@
+using System;
 using UnityEngine;
 
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
 
-    public AnimatorManager _AnimatorManager { get; private set; }
-    public AudioManager _AudioManager { get; private set; }
+    public AnimatorManager AnimatorManager { get; private set; }
+    public AudioManager AudioManager { get; private set; }
+    public GameObject Player { get; private set; }
+    public GameObject Seagull { get; private set; }
 
     void Awake()
     {
@@ -14,11 +17,24 @@ public class GameManager : MonoBehaviour
             Destroy(Instance);
         }
         Instance = this;
+
+        try
+        {
+            AnimatorManager = FindAnyObjectByType<AnimatorManager>();
+            AudioManager = FindAnyObjectByType<AudioManager>();
+
+            Player = FindAnyObjectByType<PlayerController>().gameObject;
+            Seagull = FindAnyObjectByType<SeagullController>().gameObject;
+        }
+        catch (NullReferenceException ex)
+        {
+            Debug.LogError(ex.Message);
+            return;
+        }
     }
 
-    void Start()
+    public void Lose()
     {
-        _AnimatorManager = GetComponentInChildren<AnimatorManager>();
-        _AudioManager = GetComponentInChildren<AudioManager>();
+        Debug.Break(); // TODO
     }
 }
