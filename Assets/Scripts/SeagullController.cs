@@ -28,12 +28,23 @@ public class SeagullController : MonoBehaviour
     private int currentTargetIndex;
     private int nextTargetIndex;
 
+    [Header("Chase")]
+    [SerializeField] private bool chaseCooldown = false;
+    [SerializeField] private float minChaseCooldown;
+    [SerializeField] private float maxChaseCooldown;
+    [SerializeField] private float chaseSpeed;
+    [SerializeField] private float chaseStoppingDistance;
+    [SerializeField] private Transform playerTransform;
+    [SerializeField] private Transform playerSkyPoint;
+    private BoxCollider playerSkyPointCollider;
+
     void Start()
     {
         gameManager = GameManager.Instance;
         seagullAnimator = GetComponent<Animator>();
         sprite = GetComponent<SpriteRenderer>();
         navAgent = GetComponentInParent<NavMeshAgent>();
+        playerSkyPointCollider = playerSkyPoint.GetComponent<BoxCollider>();
 
         shadowInitialScale = transform.localScale;
 
@@ -45,10 +56,24 @@ public class SeagullController : MonoBehaviour
 
     void Update()
     {
+        UpdateSeagullState();
+
         AlignSpriteToPlayer();
         BillboardEffect();
 
         SetShadowPosition();
+    }
+
+    private void UpdateSeagullState()
+    {
+        if (!chaseCooldown)
+        {
+            currentState = SeagullState.chasing;
+        } // TODO other states
+        else
+        {
+            currentState = SeagullState.standby;
+        }
     }
 
     private void AlignSpriteToPlayer()
@@ -94,7 +119,23 @@ public class SeagullController : MonoBehaviour
 
     private void UpdateSeagullBehavior()
     {
+        if (currentState == SeagullState.chasing)
+        {
+            playerSkyPointCollider.enabled = true;
+            Chase();
+        }// TODO other state behavior
+        else
+        {
+            playerSkyPointCollider.enabled = false;
             StandbyFlying();
+        }
+    }
+
+    private void Chase()
+    {
+        navAgent.SetDestination(playerTransform.position);
+        navAgent.stoppingDistance = chaseStoppingDistance;
+        navAgent.speed = chaseSpeed;
     }
 
     private void StandbyFlying()
@@ -117,4 +158,18 @@ public class SeagullController : MonoBehaviour
         nextTargetIndex = Random.Range(0, standbyTargets.Length);
     }
 
+
+    private void ReturnToStandBy(string climbing = "true")
+    {
+        StartCoroutine(nameof(ChaseCooldownTimer));
+    }
+
+    IEnumerator ChaseCooldownTimer()
+    {
+        chaseCooldown = true;
+        yield return new WaitForSeconds(Random.Range(minChaseCooldown, maxChaseCooldown));
+
+        chaseCooldown = false;
+        StopCoroutine(nameof(ChaseCooldownTimer));
+    }
 }
