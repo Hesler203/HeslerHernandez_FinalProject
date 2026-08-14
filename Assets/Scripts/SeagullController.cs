@@ -6,6 +6,9 @@ using UnityEngine.AI;
 [RequireComponent(typeof(SpriteRenderer))]
 public class SeagullController : MonoBehaviour
 {
+    private static readonly int ClimbHash = Animator.StringToHash("climb");
+    private static readonly int DiveHash = Animator.StringToHash("dive");
+
     private GameManager gameManager; // TODO
     private Animator seagullAnimator;
     private SpriteRenderer sprite;
@@ -37,6 +40,14 @@ public class SeagullController : MonoBehaviour
     [SerializeField] private Transform playerTransform;
     [SerializeField] private Transform playerSkyPoint;
     private BoxCollider playerSkyPointCollider;
+
+    [Header("Dive")]
+    [SerializeField] private SphereCollider beakCollider;
+    [SerializeField] private SphereCollider beakColliderFlipped;
+    [SerializeField] private float diveSpeed;
+
+    [Header("Climb")]
+    [SerializeField] private float climbSpeed;
 
     void Start()
     {
@@ -136,12 +147,20 @@ public class SeagullController : MonoBehaviour
         navAgent.SetDestination(playerTransform.position);
         navAgent.stoppingDistance = chaseStoppingDistance;
         navAgent.speed = chaseSpeed;
+        if (seagullAnimator.GetBool(DiveHash))
+        {
+            navAgent.speed = diveSpeed;
+        }
     }
 
     private void StandbyFlying()
     {
         navAgent.stoppingDistance = standbyStoppingDistance;
         navAgent.speed = standbySpeed;
+        if (seagullAnimator.GetBool(ClimbHash))
+        {
+            navAgent.speed = climbSpeed;
+        }
 
         if (navAgent.transform.position != standbyTargets[currentTargetIndex].position)
         {
@@ -158,9 +177,23 @@ public class SeagullController : MonoBehaviour
         nextTargetIndex = Random.Range(0, standbyTargets.Length);
     }
 
+    void OnTriggerEnter(Collider other)
+    {
+        if (other.CompareTag("Ground"))
+        {
+            seagullAnimator.SetBool(DiveHash, false);
+            seagullAnimator.SetBool(ClimbHash, true);
+            ReturnToStandBy();
+        }
+    }
 
     private void ReturnToStandBy(string climbing = "true")
     {
+        if (climbing == "false")
+        {
+            seagullAnimator.SetBool(ClimbHash, false);
+            return;
+        }
         StartCoroutine(nameof(ChaseCooldownTimer));
     }
 
