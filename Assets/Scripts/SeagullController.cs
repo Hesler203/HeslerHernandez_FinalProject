@@ -10,18 +10,26 @@ public class SeagullController : MonoBehaviour
 
     [Header("Settings")]
     [SerializeField] private Vector3 startPosition;
+    [SerializeField] private float shadowRayMaxDistance;
+    [SerializeField] private Transform shadowTransform;
+    private Vector3 shadowInitialScale;
 
     void Start()
     {
         gameManager = GameManager.Instance;
         sprite = GetComponent<SpriteRenderer>();
         navAgent = GetComponentInParent<NavMeshAgent>();
+
+        shadowInitialScale = transform.localScale;
+
     }
 
     void Update()
     {
         AlignSpriteToPlayer();
         BillboardEffect();
+
+        SetShadowPosition();
     }
 
     private void AlignSpriteToPlayer()
@@ -48,3 +56,15 @@ public class SeagullController : MonoBehaviour
         transform.rotation = Camera.main.transform.rotation;
     }
 
+    private void SetShadowPosition()
+    {
+        if (Physics.Raycast(transform.position, Vector3.down, out RaycastHit hit, shadowRayMaxDistance, LayerMask.GetMask("Ground")))
+        {
+            shadowTransform.position = new Vector3(transform.position.x, hit.point.y, transform.position.z);
+            if (hit.distance < shadowInitialScale.x)
+            {
+                shadowTransform.localScale *= hit.distance / shadowInitialScale.x;
+            }
+        }
+    }
+}
