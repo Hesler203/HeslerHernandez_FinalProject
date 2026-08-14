@@ -6,7 +6,9 @@ using UnityEngine;
 [RequireComponent(typeof(Animator))]
 public class PlayerController : MonoBehaviour
 {
+    public static readonly int IsCaughtHash = Animator.StringToHash("isCaught");
     public static readonly int FlippedHash = Animator.StringToHash("flipped");
+    public static readonly int RolledHash = Animator.StringToHash("rolled");
     public static readonly int IsMovingHash = Animator.StringToHash("isMoving");
 
     private GameManager gameManager; // TODO
@@ -15,16 +17,23 @@ public class PlayerController : MonoBehaviour
     private SpriteRenderer sprite;
     private Rigidbody rb;
 
+
     [Header("Settings")]
     [SerializeField] private Transform playerSkyPoint;
     [SerializeField] private Vector3 startPosition;
     [SerializeField] private float moveSpeed;
     [SerializeField] private float depthMoveMultiplier;
     [SerializeField] private float rollSpeed;
+    [SerializeField] private float depthRollMultiplier;
     [SerializeField] private float idleDamping;
     [SerializeField] private float moveDamping;
+    [SerializeField] private float rollDamping;
     private Vector3 moveDirection;
     private float moveDeadZone;
+
+    [Header("Player State")]
+    public PlayerState currentState;
+    public enum PlayerState { idle, moving, rolling, caught } // TODO - carrying, pricked, kelpy
 
     void Start()
     {
@@ -35,11 +44,37 @@ public class PlayerController : MonoBehaviour
         rb = GetComponent<Rigidbody>();
 
         moveDeadZone = inputManager.MoveDeadzone;
+        currentState = PlayerState.idle;
     }
 
     void Update()
     {
+        UpdatePlayerState();
+
         AlignSkyPointWithPlayer();
+    }
+
+    private void UpdatePlayerState()
+    {
+        if (playerAnimator.GetBool(IsMovingHash))
+        {
+            currentState = PlayerState.moving;
+        }
+        else if (playerAnimator.GetBool(RolledHash))
+        {
+            currentState = PlayerState.rolling;
+        }
+        else if (playerAnimator.GetBool(IsCaughtHash))
+        {
+            currentState = PlayerState.caught;
+
+            moveDirection *= 0;
+            rb.linearVelocity = Vector3.zero;
+        }// TODO other player states
+        else
+        {
+            currentState = PlayerState.idle;
+        }
     }
 
     private void AlignSkyPointWithPlayer()
@@ -60,6 +95,7 @@ public class PlayerController : MonoBehaviour
 
     private void FlipSpriteOnMove()
     {
+        if (currentState != PlayerState.rolling && currentState != PlayerState.caught)
         {
             if (inputManager.PlayerMoveInput.x > moveDeadZone)
             {
@@ -80,20 +116,13 @@ public class PlayerController : MonoBehaviour
 
     private void HandleMovement()
     {
-        if (Math.Abs(inputManager.PlayerMoveInput.sqrMagnitude) > moveDeadZone && !playerAnimator.GetBool(RolledHash))
+        if (currentState != PlayerState.rolling && currentState != PlayerState.caught)
         {
             if (Math.Abs(inputManager.PlayerMoveInput.sqrMagnitude) > moveDeadZone)
             {
-                velocity.x *= depthSpeedMultiplier * 2 / 3;
-            }
-            velocity.z *= depthSpeedMultiplier;
                 moveDirection = new Vector3(inputManager.PlayerMoveInput.x, 0, inputManager.PlayerMoveInput.y).normalized;
                 Vector3 velocity = moveDirection * moveSpeed;
 
-            if (!playerAnimator.GetBool(RolledHash))
-            {
-                rb.linearDamping = initialDamping;
-            }
                 velocity.z *= depthMoveMultiplier;
                 if (Math.Abs(velocity.x) > 0 && Math.Abs(velocity.z) > 0)
                 {
@@ -116,38 +145,39 @@ public class PlayerController : MonoBehaviour
 
     private void HandleRoll(string rollFinished = "false")
     {
-        if (inputManager.PlayerRollInput && !playerAnimator.GetBool(RolledHash))
+        if (currentState != PlayerState.rolling || currentState != PlayerState.caught)
         {
-            playerAnimator.SetBool(RolledHash, true);
-            return;
+            if (inputManager.PlayerRollInput)
+            {
+                playerAnimator.SetBool(RolledHash, true);
+                playerAnimator.SetBool(IsMovingHash, false);
+                return;
+            }
         }
+
         if (rollFinished == "true")
         {
             playerAnimator.SetBool(RolledHash, false);
+            rb.linearDamping = rollDamping;
         }
-    }
-
-    private void PerformRoll(Vector3 rollDirection)
-    {
-        rb.linearDamping = initialDamping * idleDampingMultiplier;
-
-        Vector3 rollVelocity = rollDirection * rollSpeed;
-        if (Math.Abs(rollVelocity.x) > 0 && Math.Abs(rollVelocity.z) > 0)
-        {
-            rollVelocity.x *= depthSpeedMultiplier * 2 / 3;
-        }
-        rollVelocity.z *= depthSpeedMultiplier;
-
-        if (sprite.flipX == true)
-        {
-            rb.AddForce(rollVelocity, ForceMode.VelocityChange);
-            return;
-        }
-        rb.AddForce(rollVelocity, ForceMode.VelocityChange);
     }
 
     private void InitiateRoll()
     {
         PerformRoll(moveDirection);
+    }
+
+    private void PerformRoll(Vector3 rollDirection)
+    {
+        Vector3 rollVelocity = rollDirection * rollSpeed;
+
+        rollVelocity.z *= depthRollMultiplier;
+        if (Math.Abs(rollVelocity.x) > 0 && Math.Abs(rollVelocity.z) > 0)
+        {
+            rollVelocity.x++;
+        }
+
+        rb.linearDamping = 0;
+        rb.AddForce(rollVelocity, ForceMode.VelocityChange);
     }
 }
