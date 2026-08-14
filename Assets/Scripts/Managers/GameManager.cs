@@ -7,8 +7,8 @@ public class GameManager : MonoBehaviour
 
     public AnimatorManager AnimatorManager { get; private set; }
     public AudioManager AudioManager { get; private set; }
-    public GameObject Player { get; private set; }
-    public GameObject Seagull { get; private set; }
+    public PlayerController PlayerController { get; private set; }
+    public SeagullController SeagullController { get; private set; }
 
     void Awake()
     {
@@ -17,19 +17,46 @@ public class GameManager : MonoBehaviour
             Destroy(Instance);
         }
         Instance = this;
+        DontDestroyOnLoad(gameObject);
 
+        SetReferences();
+    }
+
+    private void SetReferences()
+    {
         try
         {
             AnimatorManager = FindAnyObjectByType<AnimatorManager>();
             AudioManager = FindAnyObjectByType<AudioManager>();
 
-            Player = FindAnyObjectByType<PlayerController>().gameObject;
-            Seagull = FindAnyObjectByType<SeagullController>().gameObject;
+            PlayerController = FindAnyObjectByType<PlayerController>();
+            SeagullController = FindAnyObjectByType<SeagullController>();
         }
         catch (NullReferenceException ex)
         {
             Debug.LogError(ex.Message);
-            return;
+        }
+    }
+
+    void Start()
+    {
+        AudioManager.PlayMusic(AudioManager.StandbyTrack);
+    }
+
+    void LateUpdate()
+    {
+        SetMusicTrackToSeagullState();
+    }
+
+    private void SetMusicTrackToSeagullState()
+    {
+        if (SeagullController.currentState == SeagullController.SeagullState.standby && AudioManager.CurrentTrackName != AudioManager.StandbyTrack.name)
+        {
+            AudioManager.PlayMusic(AudioManager.StandbyTrack);
+        }
+        else if (SeagullController.currentState == SeagullController.SeagullState.chasing && AudioManager.CurrentTrackName != AudioManager.ChaseTrack.name)
+        {
+            AudioManager.PlayMusic(AudioManager.ChaseTrack);
         }
     }
 
