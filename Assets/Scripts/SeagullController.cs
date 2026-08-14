@@ -1,10 +1,13 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.AI;
 
+[RequireComponent(typeof(Animator))]
 [RequireComponent(typeof(SpriteRenderer))]
 public class SeagullController : MonoBehaviour
 {
     private GameManager gameManager; // TODO
+    private Animator seagullAnimator;
     private SpriteRenderer sprite;
     private NavMeshAgent navAgent;
 
@@ -14,14 +17,30 @@ public class SeagullController : MonoBehaviour
     [SerializeField] private Transform shadowTransform;
     private Vector3 shadowInitialScale;
 
+    [Header("Current State")]
+    public SeagullState currentState;
+    public enum SeagullState { standby, chasing } // TODO travel
+
+    [Header("Standby")]
+    [SerializeField] private float standbySpeed;
+    [SerializeField] private float standbyStoppingDistance;
+    [SerializeField] private Transform[] standbyTargets;
+    private int currentTargetIndex;
+    private int nextTargetIndex;
+
     void Start()
     {
         gameManager = GameManager.Instance;
+        seagullAnimator = GetComponent<Animator>();
         sprite = GetComponent<SpriteRenderer>();
         navAgent = GetComponentInParent<NavMeshAgent>();
 
         shadowInitialScale = transform.localScale;
 
+        navAgent.SetDestination(standbyTargets[nextTargetIndex = 0].position);
+        currentTargetIndex = nextTargetIndex++;
+
+        currentState = SeagullState.standby;
     }
 
     void Update()
@@ -67,4 +86,35 @@ public class SeagullController : MonoBehaviour
             }
         }
     }
+
+    void LateUpdate()
+    {
+        UpdateSeagullBehavior();
+    }
+
+    private void UpdateSeagullBehavior()
+    {
+            StandbyFlying();
+    }
+
+    private void StandbyFlying()
+    {
+        navAgent.stoppingDistance = standbyStoppingDistance;
+        navAgent.speed = standbySpeed;
+
+        if (navAgent.transform.position != standbyTargets[currentTargetIndex].position)
+        {
+            navAgent.SetDestination(standbyTargets[currentTargetIndex].position);
+            return;
+        }
+
+        if (nextTargetIndex < standbyTargets.Length)
+        {
+            navAgent.SetDestination(standbyTargets[nextTargetIndex].position);
+            currentTargetIndex = nextTargetIndex++;
+            return;
+        }
+        nextTargetIndex = Random.Range(0, standbyTargets.Length);
+    }
+
 }
