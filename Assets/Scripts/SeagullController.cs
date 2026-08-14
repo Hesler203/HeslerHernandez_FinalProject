@@ -1,9 +1,7 @@
 using System.Collections;
-using System.Collections;
 using UnityEngine;
 using UnityEngine.AI;
 
-[RequireComponent(typeof(Animator))]
 [RequireComponent(typeof(Animator))]
 [RequireComponent(typeof(SpriteRenderer))]
 public class SeagullController : MonoBehaviour
