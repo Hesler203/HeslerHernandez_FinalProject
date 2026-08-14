@@ -1,47 +1,55 @@
 using System;
-using Unity.Mathematics;
-using UnityEditor.MPE;
 using UnityEngine;
+
 [RequireComponent(typeof(SpriteRenderer))]
 [RequireComponent(typeof(Rigidbody))]
 [RequireComponent(typeof(Animator))]
 public class PlayerController : MonoBehaviour
 {
-    private static readonly int FlippedHash = Animator.StringToHash("flipped");
-    private static readonly int RolledHash = Animator.StringToHash("rolled");
-    private static readonly int IsMovingHash = Animator.StringToHash("isMoving");
+    public static readonly int FlippedHash = Animator.StringToHash("flipped");
+    public static readonly int IsMovingHash = Animator.StringToHash("isMoving");
+
+    private GameManager gameManager; // TODO
     private InputManager inputManager;
-    private GameManager gameManager;
     private Animator playerAnimator;
     private SpriteRenderer sprite;
     private Rigidbody rb;
-    private float initialDamping;
-    private Vector3 moveDirection;
 
     [Header("Settings")]
+    [SerializeField] private Transform playerSkyPoint;
     [SerializeField] private Vector3 startPosition;
     [SerializeField] private float moveSpeed;
+    [SerializeField] private float depthMoveMultiplier;
     [SerializeField] private float rollSpeed;
-    [SerializeField] private float depthSpeedMultiplier;
-    [SerializeField] private float idleDampingMultiplier;
-    [SerializeField] private float moveDeadZone;
+    [SerializeField] private float idleDamping;
+    [SerializeField] private float moveDamping;
+    private Vector3 moveDirection;
+    private float moveDeadZone;
 
     void Start()
     {
         gameManager = GameManager.Instance;
         inputManager = InputManager.Instance;
         playerAnimator = GetComponent<Animator>();
-        moveDeadZone = inputManager.MoveDeadzone;
         sprite = GetComponent<SpriteRenderer>();
         rb = GetComponent<Rigidbody>();
 
-        initialDamping = rb.linearDamping;
+        moveDeadZone = inputManager.MoveDeadzone;
+    }
+
+    void Update()
+    {
+        AlignSkyPointWithPlayer();
+    }
+
+    private void AlignSkyPointWithPlayer()
+    {
+        playerSkyPoint.position = new Vector3(transform.position.x, playerSkyPoint.position.y, transform.position.z);
     }
 
     void LateUpdate()
     {
         FlipSpriteOnMove();
-        moveDirection = new Vector3(inputManager.PlayerMoveInput.x, 0, inputManager.PlayerMoveInput.y).normalized;
     }
 
     void FixedUpdate()
@@ -52,19 +60,21 @@ public class PlayerController : MonoBehaviour
 
     private void FlipSpriteOnMove()
     {
-        if (inputManager.PlayerMoveInput.x > moveDeadZone && !playerAnimator.GetBool(RolledHash))
         {
-            sprite.flipX = true;
-            playerAnimator.SetBool(FlippedHash, true);
-        }
-        else if (inputManager.PlayerMoveInput.x < -moveDeadZone && !playerAnimator.GetBool(RolledHash))
-        {
-            sprite.flipX = false;
-            playerAnimator.SetBool(FlippedHash, false);
-        }
-        else
-        {
-            return;
+            if (inputManager.PlayerMoveInput.x > moveDeadZone)
+            {
+                sprite.flipX = true;
+                playerAnimator.SetBool(FlippedHash, true);
+            }
+            else if (inputManager.PlayerMoveInput.x < -moveDeadZone)
+            {
+                sprite.flipX = false;
+                playerAnimator.SetBool(FlippedHash, false);
+            }
+            else
+            {
+                return;
+            }
         }
     }
 
@@ -72,25 +82,36 @@ public class PlayerController : MonoBehaviour
     {
         if (Math.Abs(inputManager.PlayerMoveInput.sqrMagnitude) > moveDeadZone && !playerAnimator.GetBool(RolledHash))
         {
-            Vector3 velocity = moveDirection * moveSpeed;
-
-            if (Math.Abs(velocity.x) > 0 && Math.Abs(velocity.z) > 0)
+            if (Math.Abs(inputManager.PlayerMoveInput.sqrMagnitude) > moveDeadZone)
             {
                 velocity.x *= depthSpeedMultiplier * 2 / 3;
             }
             velocity.z *= depthSpeedMultiplier;
+                moveDirection = new Vector3(inputManager.PlayerMoveInput.x, 0, inputManager.PlayerMoveInput.y).normalized;
+                Vector3 velocity = moveDirection * moveSpeed;
 
             if (!playerAnimator.GetBool(RolledHash))
             {
                 rb.linearDamping = initialDamping;
             }
-            rb.AddForce(velocity, ForceMode.Acceleration);
+                velocity.z *= depthMoveMultiplier;
+                if (Math.Abs(velocity.x) > 0 && Math.Abs(velocity.z) > 0)
+                {
+                    velocity.x++;
+                }
 
-            playerAnimator.SetBool(IsMovingHash, true);
-            return;
+                rb.linearDamping = moveDamping;
+
+                rb.AddForce(velocity, ForceMode.Acceleration);
+
+                playerAnimator.SetBool(IsMovingHash, true);
+                return;
+            }
+            rb.linearDamping = idleDamping;
+            moveDirection.y = 0;
+            moveDirection.z = 0;
+            playerAnimator.SetBool(IsMovingHash, false);
         }
-        rb.linearDamping = initialDamping * idleDampingMultiplier;
-        playerAnimator.SetBool(IsMovingHash, false);
     }
 
     private void HandleRoll(string rollFinished = "false")
