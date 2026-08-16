@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using UnityEngine;
 
 [RequireComponent(typeof(SpriteRenderer))]
@@ -6,10 +7,11 @@ using UnityEngine;
 [RequireComponent(typeof(Animator))]
 public class PlayerController : MonoBehaviour
 {
-    public static readonly int IsCaughtHash = Animator.StringToHash("isCaught");
-    public static readonly int FlippedHash = Animator.StringToHash("flipped");
-    public static readonly int RolledHash = Animator.StringToHash("rolled");
-    public static readonly int IsMovingHash = Animator.StringToHash("isMoving");
+    private readonly int isMoving = AnimatorManager.IsMovingHash;
+    private readonly int isRolling = AnimatorManager.IsRollingHash;
+    private readonly int isFlipped = AnimatorManager.IsFlippedHash;
+    private readonly int isCaught = AnimatorManager.IsCaughtHash;
+    private readonly int isFalling = AnimatorManager.IsFallingHash;
 
     private GameManager gameManager; // TODO
     private InputManager inputManager;
@@ -17,23 +19,26 @@ public class PlayerController : MonoBehaviour
     private SpriteRenderer sprite;
     private Rigidbody rb;
 
-
     [Header("Settings")]
-    [SerializeField] private Transform playerSkyPoint;
     [SerializeField] private Vector3 startPosition;
+    [SerializeField] private Transform playerSkyPoint;
+    [field: SerializeField] public float CaptureTime { get; private set; }
+    private Transform seagullBeakTransform;
+
+    [Header("Movement")]
+    [SerializeField] private float idleDamping;
     [SerializeField] private float moveSpeed;
+    [SerializeField] private float moveDamping;
     [SerializeField] private float depthMoveMultiplier;
     [SerializeField] private float rollSpeed;
-    [SerializeField] private float depthRollMultiplier;
-    [SerializeField] private float idleDamping;
-    [SerializeField] private float moveDamping;
     [SerializeField] private float rollDamping;
+    [SerializeField] private float depthRollMultiplier;
     private Vector3 moveDirection;
     private float moveDeadZone;
 
     [Header("Player State")]
-    public PlayerState currentState;
-    public enum PlayerState { idle, moving, rolling, caught } // TODO - carrying, pricked, kelpy
+    [field: SerializeField] public static PlayerState CurrentState { get; private set; }
+    public enum PlayerState { idle, moving, rolling, caught, falling } // TODO - carrying, pricked, kelpy
 
     void Start()
     {
@@ -44,7 +49,7 @@ public class PlayerController : MonoBehaviour
         rb = GetComponent<Rigidbody>();
 
         moveDeadZone = inputManager.MoveDeadzone;
-        currentState = PlayerState.idle;
+        CurrentState = PlayerState.idle;
     }
 
     void Update()
@@ -56,24 +61,27 @@ public class PlayerController : MonoBehaviour
 
     private void UpdatePlayerState()
     {
-        if (playerAnimator.GetBool(IsMovingHash))
+        if (playerAnimator.GetBool(isMoving))
         {
-            currentState = PlayerState.moving;
+            CurrentState = PlayerState.moving;
         }
-        else if (playerAnimator.GetBool(RolledHash))
+        else if (playerAnimator.GetBool(isRolling))
         {
-            currentState = PlayerState.rolling;
+            CurrentState = PlayerState.rolling;
         }
-        else if (playerAnimator.GetBool(IsCaughtHash))
+        else if (playerAnimator.GetBool(isCaught))
         {
-            currentState = PlayerState.caught;
+            CurrentState = PlayerState.caught;
 
-            moveDirection *= 0;
-            rb.linearVelocity = Vector3.zero;
+        }
+        else if (playerAnimator.GetBool(isFalling))
+        {
+            CurrentState = PlayerState.falling;
+
         }// TODO other player states
         else
         {
-            currentState = PlayerState.idle;
+            CurrentState = PlayerState.idle;
         }
     }
 
@@ -85,27 +93,24 @@ public class PlayerController : MonoBehaviour
     void LateUpdate()
     {
         FlipSpriteOnMove();
-    }
 
-    void FixedUpdate()
-    {
-        HandleMovement();
-        HandleRoll();
+        HandleCaught();
+        HandleFalling();
     }
 
     private void FlipSpriteOnMove()
     {
-        if (currentState != PlayerState.rolling && currentState != PlayerState.caught)
+        if (CurrentState != PlayerState.rolling && CurrentState != PlayerState.caught)
         {
             if (inputManager.PlayerMoveInput.x > moveDeadZone)
             {
                 sprite.flipX = true;
-                playerAnimator.SetBool(FlippedHash, true);
+                playerAnimator.SetBool(isFlipped, true);
             }
             else if (inputManager.PlayerMoveInput.x < -moveDeadZone)
             {
                 sprite.flipX = false;
-                playerAnimator.SetBool(FlippedHash, false);
+                playerAnimator.SetBool(isFlipped, false);
             }
             else
             {
@@ -114,9 +119,47 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    public void TriggerCapture(Transform seagullBeak)
+    {
+        seagullBeakTransform = seagullBeak;
+        playerAnimator.SetBool(isCaught, true);
+        StartCoroutine(nameof(PlayerCaptureTimer));
+    }
+
+    private void HandleCaught()
+    {
+        if (seagullBeakTransform && CurrentState == PlayerState.caught)
+        {
+            transform.position = seagullBeakTransform.position;
+            moveDirection *= 0;
+            rb.linearVelocity = Vector3.zero;
+        }
+    }
+
+    private void HandleFalling()
+    {
+        if (CurrentState == PlayerState.falling)
+        {
+            moveDirection *= 0;
+        }
+    }
+
+    IEnumerator PlayerCaptureTimer()
+    {
+        yield return new WaitForSeconds(CaptureTime);
+        playerAnimator.SetBool(isCaught, false);
+        seagullBeakTransform = null;
+    }
+
+    void FixedUpdate()
+    {
+        HandleMovement();
+        HandleRoll();
+    }
+
     private void HandleMovement()
     {
-        if (currentState != PlayerState.rolling && currentState != PlayerState.caught)
+        if (CurrentState != PlayerState.rolling && CurrentState != PlayerState.caught)
         {
             if (Math.Abs(inputManager.PlayerMoveInput.sqrMagnitude) > moveDeadZone)
             {
@@ -133,31 +176,31 @@ public class PlayerController : MonoBehaviour
 
                 rb.AddForce(velocity, ForceMode.Acceleration);
 
-                playerAnimator.SetBool(IsMovingHash, true);
+                playerAnimator.SetBool(isMoving, true);
                 return;
             }
             rb.linearDamping = idleDamping;
             moveDirection.y = 0;
             moveDirection.z = 0;
-            playerAnimator.SetBool(IsMovingHash, false);
+            playerAnimator.SetBool(isMoving, false);
         }
     }
 
     private void HandleRoll(string rollFinished = "false")
     {
-        if (currentState != PlayerState.rolling || currentState != PlayerState.caught)
+        if (CurrentState != PlayerState.rolling || CurrentState != PlayerState.caught)
         {
             if (inputManager.PlayerRollInput)
             {
-                playerAnimator.SetBool(RolledHash, true);
-                playerAnimator.SetBool(IsMovingHash, false);
+                playerAnimator.SetBool(isRolling, true);
+                playerAnimator.SetBool(isMoving, false);
                 return;
             }
         }
 
         if (rollFinished == "true")
         {
-            playerAnimator.SetBool(RolledHash, false);
+            playerAnimator.SetBool(isRolling, false);
             rb.linearDamping = rollDamping;
         }
     }
@@ -179,5 +222,24 @@ public class PlayerController : MonoBehaviour
 
         rb.linearDamping = 0;
         rb.AddForce(rollVelocity, ForceMode.VelocityChange);
+    }
+
+    private void PlaySound(string soundName)
+    {
+        gameManager.AudioManager.PlaySound(soundName);
+    }
+
+    private void StopSound()
+    {
+        gameManager.AudioManager.StopSound(AudioManager.SFXType.player);
+    }
+
+    void OnCollisionEnter(Collision collision)
+    {
+        if (collision.gameObject.CompareTag("Ground") && CurrentState == PlayerState.falling)
+        {
+            playerAnimator.SetBool(isFalling, false);
+            return;
+        }
     }
 }

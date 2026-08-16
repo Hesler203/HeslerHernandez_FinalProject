@@ -4,7 +4,7 @@ using UnityEngine.AI;
 [RequireComponent(typeof(NavMeshAgent))]
 public class TriggerSeagullDive : MonoBehaviour
 {
-    private static readonly int DiveHash = Animator.StringToHash("dive");
+    private readonly int isDiving = AnimatorManager.IsDivingHash;
     private Animator seagullAnimator;
 
     void Start()
@@ -14,9 +14,10 @@ public class TriggerSeagullDive : MonoBehaviour
 
     void OnTriggerEnter(Collider other)
     {
-        if (other.gameObject.CompareTag("SkyPoint"))
+        if (other.gameObject.CompareTag("SkyPoint") && !seagullAnimator.GetBool(isDiving))
         {
-            seagullAnimator.SetBool(DiveHash, true);
+            seagullAnimator.SetBool(isDiving, true);
+            return;
         }
     }
 }

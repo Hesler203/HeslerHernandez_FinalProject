@@ -2,30 +2,46 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.Video;
 
+[RequireComponent(typeof(VideoPlayer))]
 public class CameraController : MonoBehaviour
 {
+    [Header("Settings")]
+    [SerializeField] private Vector3 initialPosition;
+    [SerializeField] private Transform navAgentTransform;
+    [SerializeField] private Transform playerTransform;
     public VideoPlayer VideoPlayer { get; private set; }
-    public bool play = false;
+
     void Start()
     {
         VideoPlayer = GetComponent<VideoPlayer>();
+        initialPosition = transform.position;
     }
 
     void Update()
     {
-        if (play)
+        transform.position = initialPosition;
+        
+        if (PlayerController.CurrentState == PlayerController.PlayerState.caught)
         {
-            StartCoroutine(nameof(PlayWaveClip));
+            transform.position = new Vector3(transform.position.x, navAgentTransform.position.y, transform.position.z);
+        }
+        else if (PlayerController.CurrentState == PlayerController.PlayerState.falling)
+        {
+            transform.position = new Vector3(transform.position.x, playerTransform.position.y, transform.position.z);
         }
     }
 
-    IEnumerator PlayWaveClip()
+    public void PlayVideo()
+    {
+        StartCoroutine(nameof(RunVideoClip));
+    }
+
+    IEnumerator RunVideoClip()
     {
         VideoPlayer.Play();
         yield return new WaitForSeconds((float)VideoPlayer.length);
 
         VideoPlayer.Stop();
-        play = false;
-        StopCoroutine(nameof(PlayWaveClip));
+        StopCoroutine(nameof(RunVideoClip));
     }
 }

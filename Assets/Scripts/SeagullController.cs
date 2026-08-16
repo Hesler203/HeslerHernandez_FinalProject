@@ -6,8 +6,9 @@ using UnityEngine.AI;
 [RequireComponent(typeof(SpriteRenderer))]
 public class SeagullController : MonoBehaviour
 {
-    private static readonly int ClimbHash = Animator.StringToHash("climb");
-    private static readonly int DiveHash = Animator.StringToHash("dive");
+    private readonly int inChase = AnimatorManager.InChaseHash;
+    private readonly int isClimbing = AnimatorManager.IsClimbingHash;
+    private readonly int isDiving = AnimatorManager.IsDivingHash;
 
     private GameManager gameManager; // TODO
     private Animator seagullAnimator;
@@ -21,7 +22,7 @@ public class SeagullController : MonoBehaviour
     private Vector3 shadowInitialScale;
 
     [Header("Current State")]
-    public SeagullState currentState;
+    public static SeagullState currentState;
     public enum SeagullState { standby, chasing } // TODO travel
 
     [Header("Standby")]
@@ -32,7 +33,7 @@ public class SeagullController : MonoBehaviour
     private int nextTargetIndex;
 
     [Header("Chase")]
-    [SerializeField] private bool chaseCooldown = false;
+    [SerializeField] private bool isChasing;
     [SerializeField] private float minChaseCooldown;
     [SerializeField] private float maxChaseCooldown;
     [SerializeField] private float chaseSpeed;
@@ -63,10 +64,8 @@ public class SeagullController : MonoBehaviour
         currentTargetIndex = nextTargetIndex++;
 
         currentState = SeagullState.standby;
-        navAgent.SetDestination(standbyTargets[nextTargetIndex = 0].position);
-        currentTargetIndex = nextTargetIndex++;
-
-        currentState = SeagullState.standby;
+        isChasing = false;
+        StartCoroutine(nameof(ChaseCooldownTimer));
     }
 
     void Update()
@@ -81,13 +80,13 @@ public class SeagullController : MonoBehaviour
 
     private void UpdateSeagullState()
     {
-        if (!chaseCooldown)
+        if (!isChasing)
         {
-            currentState = SeagullState.chasing;
+            currentState = SeagullState.standby;
         } // TODO other states
         else
         {
-            currentState = SeagullState.standby;
+            currentState = SeagullState.chasing;
         }
     }
 
@@ -151,7 +150,8 @@ public class SeagullController : MonoBehaviour
         navAgent.SetDestination(playerTransform.position);
         navAgent.stoppingDistance = chaseStoppingDistance;
         navAgent.speed = chaseSpeed;
-        if (seagullAnimator.GetBool(DiveHash))
+
+        if (seagullAnimator.GetBool(isDiving))
         {
             navAgent.speed = diveSpeed;
         }
@@ -161,7 +161,8 @@ public class SeagullController : MonoBehaviour
     {
         navAgent.stoppingDistance = standbyStoppingDistance;
         navAgent.speed = standbySpeed;
-        if (seagullAnimator.GetBool(ClimbHash))
+
+        if (seagullAnimator.GetBool(isClimbing))
         {
             navAgent.speed = climbSpeed;
         }
@@ -183,10 +184,22 @@ public class SeagullController : MonoBehaviour
 
     void OnTriggerEnter(Collider other)
     {
+        if (other.CompareTag("Player") && PlayerController.CurrentState != PlayerController.PlayerState.caught)
+        {
+            if (sprite.flipX)
+            {
+                gameManager.PlayerController.TriggerCapture(beakColliderFlipped.transform);
+            }
+            else
+            {
+                gameManager.PlayerController.TriggerCapture(beakCollider.transform);
+            }
+        }
+
         if (other.CompareTag("Ground"))
         {
-            seagullAnimator.SetBool(DiveHash, false);
-            seagullAnimator.SetBool(ClimbHash, true);
+            seagullAnimator.SetBool(isDiving, false);
+            seagullAnimator.SetBool(isClimbing, true);
             ReturnToStandBy();
         }
     }
@@ -195,18 +208,35 @@ public class SeagullController : MonoBehaviour
     {
         if (climbing == "false")
         {
-            seagullAnimator.SetBool(ClimbHash, false);
+            seagullAnimator.SetBool(isClimbing, false);
             return;
         }
-        StartCoroutine(nameof(ChaseCooldownTimer));
+
+        if (isChasing)
+        {
+            StartCoroutine(nameof(ChaseCooldownTimer));
+        }
     }
 
     IEnumerator ChaseCooldownTimer()
     {
-        chaseCooldown = true;
+        seagullAnimator.SetBool(inChase, false);
+        isChasing = false;
+
         yield return new WaitForSeconds(Random.Range(minChaseCooldown, maxChaseCooldown));
 
-        chaseCooldown = false;
+        isChasing = true;
+        seagullAnimator.SetBool(inChase, true);
         StopCoroutine(nameof(ChaseCooldownTimer));
+    }
+
+    private void PlaySound(string soundName)
+    {
+        gameManager.AudioManager.PlaySound(soundName);
+    }
+
+    private void StopSound()
+    {
+        gameManager.AudioManager.StopSound(AudioManager.SFXType.seagull);
     }
 }

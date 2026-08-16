@@ -1,23 +1,35 @@
 using System;
 using System.Collections.Generic;
 using Alchemy.Serialization;
+using TMPro;
 using UnityEngine;
 
 [AlchemySerialize]
 public partial class SandcastleHealth : MonoBehaviour
 {
     private GameManager gameManager;
+    [SerializeField] private TextMeshProUGUI scoreValue;
 
+
+    [Header("Stats")]
+    // TODO list of trinket objects currently on the sandcastle
     [AlchemySerializeField, NonSerialized]
     public Dictionary<Health, GameObject> HealthIndicators = new();
     public enum Health { none, low, med, full };
     private Health health;
+    [SerializeField] private int defense;
 
     void Start()
     {
         gameManager = GameManager.Instance;
 
         SetHealth();
+        ClearDefenses();
+    }
+
+    private void UpdateScoreUI()
+    {
+        scoreValue.text = defense.ToString();
     }
 
     private void SetHealth(Health newHealth = Health.full)
@@ -34,7 +46,42 @@ public partial class SandcastleHealth : MonoBehaviour
         health = newHealth;
     }
 
-    private void TakeDamage()
+    private void ClearDefenses()
+    {
+        defense = 0;
+        UpdateScoreUI();
+        // TODO clear trinkets list
+    }
+
+    public void IncreaseDefense()
+    {
+        defense++;
+        UpdateScoreUI();
+    }
+
+    public void WaveHit(int damage)
+    {
+        if (CanResistDamage(damage))
+        {
+            defense -= damage;
+            UpdateScoreUI();
+            // TODO remove few trinkets from list
+            return;
+        }
+        DecreaseHealth();
+        ClearDefenses();
+    }
+
+    private bool CanResistDamage(int damage)
+    {
+        if (defense > damage)
+        {
+            return true;
+        }
+        return false;
+    }
+
+    private void DecreaseHealth()
     {
         if (health > Health.none)
         {
@@ -43,7 +90,7 @@ public partial class SandcastleHealth : MonoBehaviour
 
         if (health == Health.none)
         {
-            gameManager.Lose();
+            gameManager.StartCoroutine(nameof(gameManager.Lose));
         }
     }
 }
